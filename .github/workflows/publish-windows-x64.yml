@@ -27,8 +27,9 @@ jobs:
           conclusion=$(gh run view "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --json conclusion --jq '.conclusion')
           test "$conclusion" = success
           gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir artifacts
-          desktop=$(find artifacts/zcode-desktop-windows-x64 -maxdepth 1 -name '*.exe' -type f -print -quit)
-          web=$(find artifacts/zcode-web-windows-x64 -maxdepth 1 -name 'zcode-*.tar.gz' -type f -print -quit)
+          find artifacts -type f -printf '%p %s bytes\n'
+          desktop=$(find artifacts/zcode-desktop-windows-x64 -name '*.exe' -type f -print -quit)
+          web=$(find artifacts/zcode-web-windows-x64 -name 'zcode-*.tar.gz' -type f -print -quit)
           test -s "$desktop"
           test -s "$web"
           sha256sum "$desktop" "$web" > sha256.txt
@@ -40,8 +41,8 @@ jobs:
         run: |
           set -euo pipefail
           build_sha=$(gh run view "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --json headSha --jq '.headSha')
-          desktop=$(find artifacts/zcode-desktop-windows-x64 -maxdepth 1 -name '*.exe' -type f -print -quit)
-          web=$(find artifacts/zcode-web-windows-x64 -maxdepth 1 -name 'zcode-*.tar.gz' -type f -print -quit)
+          desktop=$(find artifacts/zcode-desktop-windows-x64 -name '*.exe' -type f -print -quit)
+          web=$(find artifacts/zcode-web-windows-x64 -name 'zcode-*.tar.gz' -type f -print -quit)
           gh release create privacy-3.14.0-win-x64-desktop-bridge \
             "$desktop" "$web" sha256.txt \
             --repo "$GITHUB_REPOSITORY" \
