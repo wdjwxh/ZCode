@@ -59,6 +59,12 @@ jobs:
           if-no-files-found: error
       - name: Build Windows x64 desktop installer
         run: pnpm bundle:desktop -- --os win --arch x64
+      - name: Verify bundled mobile page
+        shell: pwsh
+        run: |
+          $mobileRoot = 'packages/desktop/dist/win-unpacked/resources/mobile-web'
+          if (-not (Test-Path "$mobileRoot/index.html")) { throw 'Mobile page missing from Desktop package' }
+          if (-not (Get-ChildItem "$mobileRoot/assets" -Filter '*.js' -ErrorAction SilentlyContinue)) { throw 'Mobile scripts missing from Desktop package' }
       - name: Upload Windows x64 desktop installer
         uses: actions/upload-artifact@v4
         with:

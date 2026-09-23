@@ -1439,24 +1439,40 @@ function rebuildMenu() {
         copyMobileLink: () => {
           const win = BrowserWindow.getFocusedWindow() ?? getMainApplicationWindows()[0];
           if (!win) return;
-          void lanMobileBridge.linkForWindow(win.id).then(
-            (link) => {
-              clipboard.writeText(link);
-              void dialog.showMessageBox(win, {
-                type: "info",
-                title: "手机访问链接",
-                message: "链接已复制，可在同一局域网的手机浏览器打开。",
-                detail: link,
-              });
-            },
-            (error: unknown) => {
-              void dialog.showMessageBox(win, {
-                type: "error",
-                title: "手机访问链接",
-                message: error instanceof Error ? error.message : String(error),
-              });
-            },
-          );
+          const paths = [...(windowWorkspaceMap.get(win.id) ?? [])];
+          const selectWorkspace =
+            paths.length <= 1
+              ? Promise.resolve(paths[0])
+              : dialog
+                  .showMessageBox(win, {
+                    type: "question",
+                    title: "选择手机访问的工作区",
+                    message: "选择要在手机上打开的工作区",
+                    buttons: [...paths, "取消"],
+                    cancelId: paths.length,
+                  })
+                  .then(({ response }) => paths[response]);
+          void selectWorkspace.then((workspacePath) => {
+            if (!workspacePath) return;
+            void lanMobileBridge.linkForWindow(win.id, workspacePath).then(
+              (link) => {
+                clipboard.writeText(link);
+                void dialog.showMessageBox(win, {
+                  type: "info",
+                  title: "手机访问链接",
+                  message: "链接已复制，可在同一局域网的手机浏览器打开。",
+                  detail: link,
+                });
+              },
+              (error: unknown) => {
+                void dialog.showMessageBox(win, {
+                  type: "error",
+                  title: "手机访问链接",
+                  message: error instanceof Error ? error.message : String(error),
+                });
+              },
+            );
+          });
         },
         currentZoomLevel: resolveFocusedDesktopZoomLevel(),
         // 菜单 accelerator 跟随用户快捷键设置（shortcutBindings 用户覆盖）

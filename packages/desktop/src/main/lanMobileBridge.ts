@@ -25,6 +25,7 @@ const contentTypes: Record<string, string> = {
 
 interface Target {
   windowId: number;
+  workspacePath: string;
   token: string;
   sockets: Set<WebSocket>;
 }
@@ -142,7 +143,10 @@ export function createLanMobileBridge(options: {
   function findTarget(token: string | undefined): Target | undefined {
     if (!token) return undefined;
     return [...targets.values()].find(
-      (target) => sameToken(token, target.token) && options.getWindow(target.windowId),
+      (target) =>
+        sameToken(token, target.token) &&
+        options.getWindow(target.windowId) &&
+        options.getWorkspacePaths(target.windowId).includes(target.workspacePath),
     );
   }
 
@@ -176,10 +180,7 @@ export function createLanMobileBridge(options: {
       return;
     }
     if (url.pathname === "/api/server-info") {
-      const workspaces = options.getWorkspacePaths(target.windowId).map((path) => ({
-        path,
-        label: basename(path) || path,
-      }));
+      const workspaces = [{ path: target.workspacePath, label: basename(target.workspacePath) }];
       response
         .writeHead(200, {
           "Cache-Control": "no-store",
@@ -273,28 +274,35 @@ export function createLanMobileBridge(options: {
   }
 
   return {
-    async linkForWindow(windowId: number): Promise<string> {
+    async linkForWindow(windowId: number, workspacePath: string): Promise<string> {
       const win = options.getWindow(windowId);
       if (!win || !options.getHost(win.webContents.id)) {
         throw new Error("请先打开桌面工作区，等待加载完成");
       }
-      if (options.getWorkspacePaths(windowId).length === 0) {
-        throw new Error("请先在桌面窗口中打开工作区");
+      if (!options.getWorkspacePaths(windowId).includes(workspacePath)) {
+        throw new Error("该工作区已关闭，请重新选择");
       }
       await start();
-      let target = targets.get(String(windowId));
+      const targetKey = `${windowId}\0${workspacePath}`;
+      let target = targets.get(targetKey);
       if (!target) {
-        target = { windowId, token: randomBytes(32).toString("hex"), sockets: new Set() };
-        targets.set(String(windowId), target);
+        target = {
+          windowId,
+          workspacePath,
+          token: randomBytes(32).toString("hex"),
+          sockets: new Set(),
+        };
+        targets.set(targetKey, target);
       }
       return `http://${localIpAddress()}:${port}/?token=${target.token}`;
     },
     revokeWindow(windowId: number): void {
-      const target = targets.get(String(windowId));
-      if (!target) return;
-      targets.delete(String(windowId));
-      for (const ws of target.sockets) ws.close(1001, "Desktop window closed");
-      target.sockets.clear();
+      for (const [key, target] of targets) {
+        if (target.windowId !== windowId) continue;
+        targets.delete(key);
+        for (const ws of target.sockets) ws.close(1001, "Desktop window closed");
+        target.sockets.clear();
+      }
     },
     close(): void {
       for (const target of targets.values()) {
