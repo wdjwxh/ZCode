@@ -567,6 +567,9 @@ export default {
   },
   extraResources: [
     { from: resolve(workspaceRoot, noticesFileName), to: noticesFileName },
+    ...(targetPlatform.os === "win32"
+      ? [{ from: resolve(workspaceRoot, "packages/web/dist"), to: "mobile-web" }]
+      : []),
     ...(targetPlatform.os === "darwin"
       ? [
           {

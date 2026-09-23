@@ -87,6 +87,7 @@ function buildApplicationMenuTemplate(options: {
     command: DesktopCommandId,
     senderWindow?: BrowserWindow | null,
   ) => Promise<unknown>;
+  copyMobileLink?: () => void;
   currentZoomLevel?: number;
   shortcutBindings?: Record<string, string[]>;
   /** 快捷键设置页录制态：true 时摘掉全部可配置 accelerator */
@@ -168,6 +169,17 @@ function buildApplicationMenuTemplate(options: {
           accelerator: resolveMenuAccelerator(options, "openWorkspace", "CmdOrCtrl+O"),
           click: () => void options.executeDesktopCommand(DesktopCommandIds.OpenWorkspace),
         },
+        ...(process.platform === "win32" && options.copyMobileLink
+          ? [
+              {
+                label:
+                  options.currentApplicationLocale === "zh-CN"
+                    ? "复制手机访问链接"
+                    : "Copy mobile access link",
+                click: options.copyMobileLink,
+              },
+            ]
+          : []),
         { type: "separator" as const },
         {
           label: getLabel(desktopMenuMessageIds.fileCloseWindow),
@@ -358,6 +370,7 @@ export function rebuildApplicationMenu(options: {
     command: DesktopCommandId,
     senderWindow?: BrowserWindow | null,
   ) => Promise<unknown>;
+  copyMobileLink?: () => void;
   currentZoomLevel?: number;
   shortcutBindings?: Record<string, string[]>;
   /** 快捷键设置页录制态：true 时摘掉全部可配置 accelerator */
@@ -369,6 +382,7 @@ export function rebuildApplicationMenu(options: {
         currentApplicationLocale: options.currentApplicationLocale,
         zcodeEndpointSelection: options.zcodeEndpointSelection,
         executeDesktopCommand: options.executeDesktopCommand,
+        copyMobileLink: options.copyMobileLink,
         currentZoomLevel: options.currentZoomLevel,
         shortcutBindings: options.shortcutBindings,
         disableShortcutAccelerators: options.disableShortcutAccelerators,

@@ -35,6 +35,7 @@ import {
 import {
   app,
   BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   nativeImage,
@@ -98,6 +99,7 @@ import {
   syncReadyUpdateToWindow,
 } from "./autoUpdater.js";
 import { BroadcastHub } from "./broadcastHub.js";
+import { createLanMobileBridge } from "./lanMobileBridge.js";
 import { TaskRealtimeBus } from "./taskRealtimeBus.js";
 import { createAppLaunchGate } from "./appLaunchGate.js";
 import { createAppLaunchCoordinator } from "./appLaunchCoordinator.js";
@@ -617,6 +619,12 @@ const windowWorkspaceMap = new Map<number, Set<string>>();
 const windowTaskRealtimeHostIdMap = new Map<number, string>();
 const windowUnreadCountMap = new Map<number, number>();
 const windowHostProcessMap = new Map<number, ElectronUtilityProcess>();
+const lanMobileBridge = createLanMobileBridge({
+  getWindow: (windowId) => BrowserWindow.fromId(windowId) ?? undefined,
+  getHost: (webContentsId) => windowHostProcessMap.get(webContentsId),
+  getWorkspacePaths: (windowId) => [...(windowWorkspaceMap.get(windowId) ?? [])],
+  logger,
+});
 const cuaPipFocusRouter = createCuaPipFocusRouter({
   send: (windowId, event) => {
     windowHostProcessMap.get(windowId)?.postMessage({
@@ -1428,6 +1436,28 @@ function rebuildMenu() {
         currentApplicationLocale,
         zcodeEndpointSelection,
         executeDesktopCommand: executeDesktopCommandForApp,
+        copyMobileLink: () => {
+          const win = BrowserWindow.getFocusedWindow() ?? getMainApplicationWindows()[0];
+          if (!win) return;
+          void lanMobileBridge.linkForWindow(win.id).then(
+            (link) => {
+              clipboard.writeText(link);
+              void dialog.showMessageBox(win, {
+                type: "info",
+                title: "手机访问链接",
+                message: "链接已复制，可在同一局域网的手机浏览器打开。",
+                detail: link,
+              });
+            },
+            (error: unknown) => {
+              void dialog.showMessageBox(win, {
+                type: "error",
+                title: "手机访问链接",
+                message: error instanceof Error ? error.message : String(error),
+              });
+            },
+          );
+        },
         currentZoomLevel: resolveFocusedDesktopZoomLevel(),
         // 菜单 accelerator 跟随用户快捷键设置（shortcutBindings 用户覆盖）
         shortcutBindings: settings.shortcutBindings,
@@ -1654,6 +1684,7 @@ function openUpdateStatusWindow() {
     win.focus();
   });
   win.on("closed", () => {
+    lanMobileBridge.revokeWindow(win.id);
     disposeAutoUpdaterStateListener();
     if (updateStatusWindow === win) {
       updateStatusWindow = null;
@@ -2237,6 +2268,7 @@ app.on("window-all-closed", () => {
 
   app.quit();
 });
+app.on("will-quit", () => lanMobileBridge.close());
 app.on("before-quit", (event) => {
   // Windows 最后窗口关闭会在 close 阶段提前确认并标记 forceQuit；
   // macOS 的 Cmd+Q / 菜单退出不会走该窗口关闭确认，必须在 before-quit 保留应用级确认兜底。

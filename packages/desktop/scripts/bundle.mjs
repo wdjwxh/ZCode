@@ -729,6 +729,9 @@ async function main() {
   }
 
   if (!skipBuild) {
+    if (os === "win") {
+      run(pnpmCommand, ["--filter", "@zcode/web", "build"], buildEnv);
+    }
     run(pnpmCommand, ["build"], buildEnv);
   }
 

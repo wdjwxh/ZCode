@@ -1,6 +1,6 @@
 # 自建 Web 工作台使用说明
 
-此分支以 ZCode 3.14.0 为基础。手机通过浏览器访问自建 Web 服务，使用服务端工作区和 Agent 会话。它不接管另一台电脑上已打开的 Desktop 会话。上游公开源码没有截图所示“手机扫码连接／复制链接”入口；要从手机控制桌面当前会话，还需实现 Desktop Host 到局域网 Web 客户端的连接桥。
+此分支以 ZCode 3.14.0 为基础，提供两种入口：独立 Web 服务和 Windows Desktop 的局域网手机连接。独立 Web 服务使用自己的工作区会话；局域网手机连接会附加到桌面窗口现有 Host，访问同一工作区的已有任务。
 
 ## 已关闭的出口
 
@@ -14,7 +14,13 @@
 
 ## 构建
 
-fork 的 GitHub Actions 中运行 `Build Windows x64 self-hosted ZCode`，可在 Actions 页面手动启动。它在 GitHub 的 Windows x64 机器上编译 Web 运行包和 Desktop 安装包，并在该次运行的 Artifacts 中提供下载。两种包不能互相替代：Web 运行包启动独立服务；当前 Desktop 安装包尚无截图中的局域网接管功能。
+fork 的 GitHub Actions 中运行 `Build Windows x64 self-hosted ZCode`，可在 Actions 页面手动启动。它在 GitHub 的 Windows x64 机器上编译 Web 运行包和 Desktop 安装包，并在该次运行的 Artifacts 中提供下载。两种包不能互相替代：Web 运行包启动独立服务；手机接入电脑当前会话要安装 Desktop 包。
+
+## 手机访问 Desktop 当前工作区
+
+在 Windows 电脑上安装并启动当前 Actions 生成的 Desktop 包，打开目标工作区。点击菜单 **文件 → 复制手机访问链接**。将已复制的链接发送到同一局域网的手机，在手机浏览器打开。手机显示该桌面窗口的工作区任务列表，选择已有任务即可继续。电脑必须保持 ZCode 运行；关闭目标窗口后链接失效。Windows 防火墙如提示允许访问，请允许当前局域网。
+
+链接含随机访问令牌，持有链接的人可以操作该工作区。首次打开后浏览器将令牌存为仅供该站点使用的 cookie，并从地址栏去掉令牌。不要把链接发到公开场所。若电脑有多个网络接口，而自动选出的 IP 不是手机可达地址，可把链接里的 IP 改为电脑在同一局域网的 IP，端口和令牌保持不变。
 
 使用 Node.js 24.14.0 和 pnpm 10.33.2：
 
