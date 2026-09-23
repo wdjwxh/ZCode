@@ -1,0 +1,51 @@
+name: Publish Windows x64 bridge build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: Successful Build Windows x64 workflow run ID
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          conclusion=$(gh run view "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --json conclusion --jq '.conclusion')
+          test "$conclusion" = success
+          gh run download "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir artifacts
+          desktop=$(find artifacts/zcode-desktop-windows-x64 -maxdepth 1 -name '*.exe' -type f -print -quit)
+          web=$(find artifacts/zcode-web-windows-x64 -maxdepth 1 -name 'zcode-*.tar.gz' -type f -print -quit)
+          test -s "$desktop"
+          test -s "$web"
+          sha256sum "$desktop" "$web" > sha256.txt
+      - name: Create GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          build_sha=$(gh run view "$BUILD_RUN_ID" --repo "$GITHUB_REPOSITORY" --json headSha --jq '.headSha')
+          desktop=$(find artifacts/zcode-desktop-windows-x64 -maxdepth 1 -name '*.exe' -type f -print -quit)
+          web=$(find artifacts/zcode-web-windows-x64 -maxdepth 1 -name 'zcode-*.tar.gz' -type f -print -quit)
+          gh release create privacy-3.14.0-win-x64-desktop-bridge \
+            "$desktop" "$web" sha256.txt \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$build_sha" \
+            --title 'ZCode 3.14.0 self-host Windows x64 desktop bridge' \
+            --notes-file docs/lan-desktop-release-notes.md \
+            --prerelease
