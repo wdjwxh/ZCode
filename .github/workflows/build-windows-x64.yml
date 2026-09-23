@@ -44,12 +44,12 @@ jobs:
         run: |
           pnpm typecheck
           pnpm lint
-          node scripts/verify-privacy-selfhost.mjs
       - name: Build self-hosted Web package
         run: |
           pnpm --filter @zcode/cli... build
           pnpm --filter @zcode/server build
           pnpm --filter @zcode/web build
+          node scripts/verify-privacy-selfhost.mjs
           node scripts/build-zcode.mjs --skip-build --base-url https://downloads.invalid/zcode/
       - name: Upload self-hosted Web package
         uses: actions/upload-artifact@v4
