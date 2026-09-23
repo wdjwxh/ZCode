@@ -304,6 +304,14 @@ export function createLanMobileBridge(options: {
         target.sockets.clear();
       }
     },
+    revokeClosedWorkspaces(windowId: number, openPaths: readonly string[]): void {
+      for (const [key, target] of targets) {
+        if (target.windowId !== windowId || openPaths.includes(target.workspacePath)) continue;
+        targets.delete(key);
+        for (const ws of target.sockets) ws.close(1001, "Workspace closed");
+        target.sockets.clear();
+      }
+    },
     close(): void {
       for (const target of targets.values()) {
         for (const ws of target.sockets) ws.close(1001, "Desktop closed");

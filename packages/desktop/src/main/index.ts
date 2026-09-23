@@ -14,7 +14,6 @@ import { createArmsUserIdentitySync } from "./armsUserIdentity.js";
 import { ensureDesktopDeviceMidSync } from "./desktopDeviceMid.js";
 import {
   createDesktopContextPromptRollout,
-  createElectronDesktopContextPromptConfigFetcher,
 } from "./desktopContextPromptRollout.js";
 import { buildBrowserViewCloseTabNotification } from "./browserView/browserCloseTabNotification.js";
 import { BrowserGuestManager } from "./browserView/browserGuestManager.js";
@@ -198,7 +197,6 @@ import {
   listRegisteredHostAgentProcessIds,
   setBrowserUseGuestWebContentsIdsProvider,
 } from "./resourceManagerWindow.js";
-import { createDesktopHelpConfigReader } from "./desktopHelpConfig.js";
 import { registerPlatformIpcHandlers } from "./desktopMainIpcPlatform.js";
 import {
   loadCliMcpFromUserDirectory,
@@ -797,24 +795,21 @@ const remoteSessionManager = createRemoteWorkspaceSessionManager({
 
 const deviceMid = ensureDesktopDeviceMidSync();
 // 帮助配置是公开读取，不能复用下面附带账号鉴权的灰度响应缓存。
-const readHelpConfig = createDesktopHelpConfigReader({
-  appVersion: ZCODE_VERSION || app.getVersion(),
-  deviceMid,
-  resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
+// 自建版不读取官方 client/configs；两个灰度与帮助配置均以本地关闭值为准。
+const readHelpConfig = async () => ({
+  community_urls: {},
+  feedback_use_external_form: false,
 });
-// 同一个 /api/v1/client/configs fetcher 供两个灰度 rollout 共用（请求参数与鉴权完全一致，
-// 各自独立缓存/去重，服务端按 data.configs.<key> 区分功能）。
-const electronClientConfigsFetcher = createElectronDesktopContextPromptConfigFetcher({
-  appVersion: ZCODE_VERSION || app.getVersion(),
-  deviceMid,
-  resolveEndpointOrigin: resolveCurrentZCodeEndpointOrigin,
+const localDisabledConfigFetcher = async () => ({
+  code: 0,
+  data: { configs: { desktopContextPrompt: null, rendererActionTrace: null } },
 });
 desktopContextPromptRollout = createDesktopContextPromptRollout({
-  fetchConfig: electronClientConfigsFetcher,
+  fetchConfig: localDisabledConfigFetcher,
   logger,
 });
 const rendererActionTraceRollout = createRendererActionTraceRollout({
-  fetchConfig: electronClientConfigsFetcher,
+  fetchConfig: localDisabledConfigFetcher,
   logger,
 });
 const localTtftExporter = createLocalTtftExporter({
@@ -1904,7 +1899,7 @@ app.whenReady().then(async () => {
   installLocalMediaPreviewProtocol(session.defaultSession.protocol, {
     isPathAuthorized: localMediaPreviewPathRegistry.isAuthorized,
   });
-  // Electron 的 net.request 只能在 app ready 后使用；灰度请求仍是旁路预热，不阻塞首个 Host。
+  // 本地关闭配置不触网，预热后 Host 与 renderer 使用同一默认值。
   void desktopContextPromptRollout?.refresh();
   installBrowserRestoreBootstrapProtocol(
     session.fromPartition(EMBEDDED_BROWSER_PARTITION).protocol,
@@ -2115,6 +2110,7 @@ app.whenReady().then(async () => {
     syncActiveTaskSession: (windowId, sessionId) =>
       cuaPipFocusRouter.updateActiveSession(windowId, sessionId),
     syncTaskRealtimeWorkspaceKeys: (windowId, workspaceKeys) => {
+      lanMobileBridge.revokeClosedWorkspaces(windowId, workspaceKeys);
       const hostId = windowTaskRealtimeHostIdMap.get(windowId);
       if (hostId) {
         taskRealtimeBus.updateHostWorkspaceKeys(hostId, workspaceKeys);

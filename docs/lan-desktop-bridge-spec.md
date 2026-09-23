@@ -17,7 +17,7 @@ Desktop Main 独占局域网 HTTP 监听、令牌与 windowId 映射。Window Ho
 → Host 通过同一任务服务处理手机命令 → Desktop/Web 各自刷新投影
 ```
 
-窗口关闭或 WebSocket 断开时，Main 关闭对应 MessagePort。Host attachment registry 负责释放连接；已接受的任务继续由 Host/CLI 管理。
+窗口或所选工作区关闭、以及 WebSocket 断开时，Main 关闭对应 MessagePort。Host attachment registry 负责释放连接；已接受的任务继续由 Host/CLI 管理。
 
 ## 验收
 
