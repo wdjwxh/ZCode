@@ -1,0 +1,67 @@
+name: Build Windows x64 self-hosted ZCode
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-windows-x64.yml"
+      - "apps/**"
+      - "packages/**"
+      - "config/**"
+      - "patches/**"
+      - "scripts/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64:
+    runs-on: windows-2025
+    timeout-minutes: 90
+    env:
+      CI: "true"
+      HUSKY: "0"
+      NODE_OPTIONS: --max-old-space-size=8192
+      ZCODE_SKIP_REMOTE_ASSETS: "1"
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.14.0
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Verify privacy settings and source
+        run: |
+          pnpm typecheck
+          pnpm lint
+          node scripts/verify-privacy-selfhost.mjs
+      - name: Build self-hosted Web package
+        run: |
+          pnpm --filter @zcode/cli... build
+          pnpm --filter @zcode/server build
+          pnpm --filter @zcode/web build
+          node scripts/build-zcode.mjs --skip-build --base-url https://downloads.invalid/zcode/
+      - name: Upload self-hosted Web package
+        uses: actions/upload-artifact@v4
+        with:
+          name: zcode-web-windows-x64
+          path: dist/zcode/releases/*/zcode-*.tar.gz
+          if-no-files-found: error
+      - name: Build Windows x64 desktop installer
+        run: pnpm bundle:desktop -- --os win --arch x64
+      - name: Upload Windows x64 desktop installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: zcode-desktop-windows-x64
+          path: packages/desktop/dist/*.exe
+          if-no-files-found: error
