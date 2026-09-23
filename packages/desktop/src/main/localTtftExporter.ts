@@ -10,7 +10,12 @@ import {
   PeriodicExportingMetricReader,
 } from "@opentelemetry/sdk-metrics";
 import type { ReadableSpan, SpanExporter } from "@opentelemetry/sdk-trace-base";
-import { LOCAL_TTFT_BUCKETS_MS, localTtftBatchSchema, type LocalTtftBatch } from "@zcode/shared";
+import {
+  LOCAL_TTFT_BUCKETS_MS,
+  ZCODE_TELEMETRY_ENABLED,
+  localTtftBatchSchema,
+  type LocalTtftBatch,
+} from "@zcode/shared";
 import {
   createRendererActionTraceExporter,
   parseRendererActionTraceHeaders,
@@ -28,13 +33,14 @@ export function createLocalTtftExporter(options: {
   logger: { warn(...args: unknown[]): void };
 }) {
   const exporter = createRendererActionTraceExporter(options.env);
-  const endpoint =
-    validHttpUrl(options.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) ??
-    validHttpUrl(
-      options.env.OTEL_EXPORTER_OTLP_ENDPOINT
-        ? `${options.env.OTEL_EXPORTER_OTLP_ENDPOINT.replace(/\/$/, "")}/v1/metrics`
-        : undefined,
-    );
+  const endpoint = ZCODE_TELEMETRY_ENABLED
+    ? (validHttpUrl(options.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT) ??
+      validHttpUrl(
+        options.env.OTEL_EXPORTER_OTLP_ENDPOINT
+          ? `${options.env.OTEL_EXPORTER_OTLP_ENDPOINT.replace(/\/$/, "")}/v1/metrics`
+          : undefined,
+      ))
+    : undefined;
   const resource = resourceFromAttributes({
     "service.name": "zcode-local-ttft",
     "service.version": options.version,

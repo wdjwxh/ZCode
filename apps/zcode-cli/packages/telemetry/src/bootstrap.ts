@@ -22,6 +22,8 @@ const pendingStandaloneDeviceMidByStateFile = new Map<string, Promise<string | u
 let preparedOwner: AgentTelemetryRuntimeOwner | undefined;
 let preparingOwner: Promise<AgentTelemetryRuntimeOwner | undefined> | undefined;
 const noopExecution = new NoopAgentExecutionTelemetry();
+// 自建隐私版不创建远端 OTLP owner，即使宿主环境注入了 endpoint。
+const PRIVATE_BUILD_TELEMETRY_ENABLED = false;
 
 export interface CreateModelTelemetryOptions {
   owner?: AgentTelemetryRuntimeOwner;
@@ -39,6 +41,14 @@ export interface ModelTelemetryBootstrap {
 export function createModelTelemetry(
   options: CreateModelTelemetryOptions = {},
 ): ModelTelemetryBootstrap {
+  if (!PRIVATE_BUILD_TELEMETRY_ENABLED) {
+    return {
+      agentExecution: noopExecution,
+      enabled: false,
+      modelExecution: noopExecution,
+      async shutdown() {},
+    };
+  }
   // 显式注入优先，Endpoint 永远不能覆盖宿主提供的进程级 Owner。
   const owner = options.owner ?? preparedOwner;
   if (!owner) {
@@ -121,6 +131,7 @@ export async function prepareModelTelemetryEnv(
   env: EnvRecord,
   options: PrepareModelTelemetryOptions = {},
 ): Promise<EnvRecord> {
+  if (!PRIVATE_BUILD_TELEMETRY_ENABLED) return env;
   if (!resolveOtlpTraceEndpoint(env) || isExplicitlyDisabled(env.ZCODE_MODEL_TELEMETRY_ENABLED)) {
     return env;
   }

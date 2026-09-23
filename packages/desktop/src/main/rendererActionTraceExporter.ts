@@ -1,5 +1,6 @@
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import type { SpanExporter } from "@opentelemetry/sdk-trace-base";
+import { ZCODE_TELEMETRY_ENABLED } from "@zcode/shared";
 
 type EnvRecord = Record<string, string | undefined>;
 
@@ -29,6 +30,7 @@ export function parseRendererActionTraceHeaders(
 }
 
 export function createRendererActionTraceExporter(env: EnvRecord): SpanExporter | undefined {
+  if (!ZCODE_TELEMETRY_ENABLED) return undefined;
   const endpoint = resolveRendererActionTraceEndpoint(env);
   if (!endpoint) return undefined;
   return new OTLPTraceExporter({

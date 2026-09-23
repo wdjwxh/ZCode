@@ -14,6 +14,18 @@ export interface HostApiNetworkTransport {
   disposeAndWait(): Promise<void>;
 }
 
+/** 自建隐私版的控制面拒绝官方服务；模型 Provider 使用自己的网络出口。 */
+export function isBlockedZCodeServiceUrl(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return (
+      hostname === "zcode.z.ai" || hostname.endsWith(".zcode.z.ai") || hostname === "cdn-zcode.z.ai"
+    );
+  } catch {
+    return false;
+  }
+}
+
 type HostProxyRoute =
   | { kind: "direct"; noProxyMatched?: boolean }
   | { kind: "proxy"; proxyUrl: string }
@@ -131,6 +143,9 @@ export function createHostApiNetworkTransport(
       throw new Error("Host API network transport has been disposed");
     }
     const requestUrl = input instanceof Request ? input.url : String(input);
+    if (isBlockedZCodeServiceUrl(requestUrl)) {
+      throw new Error("Official ZCode service access is disabled in the self-host build");
+    }
     const route = resolveHostProxyForUrl(requestUrl, options);
     if (route.kind === "invalid") {
       throw new Error(route.reason);

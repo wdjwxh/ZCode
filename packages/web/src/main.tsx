@@ -15,7 +15,6 @@ import { WebCallbackPage } from "./auth/WebCallbackPage.js";
 import { createWebAuthService } from "./auth/webAuthService.js";
 import { WEB_ZAI_OAUTH_CONFIG, resolveWebAuthDevReturnTo } from "./auth/webZaiOAuthConfig.js";
 import { parseOAuthState, resolveSafeAppReturnTo } from "./auth/oauthStateCodec.js";
-import { resolveWebCommunityUrl, resolveWebHelpConfig } from "./communityUrl.js";
 import {
   ConversationShareLandingLoader,
   ConversationShareLandingStatus,
@@ -66,12 +65,10 @@ function resolveWebThemePreference(defaultTheme: Theme = WEB_DEFAULT_THEME): The
   document.documentElement.classList.toggle("theme-zai-dark", appliedTheme === "zai-dark");
 }
 
-async function resolveFeedbackUrl(): Promise<string | undefined> {
-  return (await resolveWebHelpConfig()).feedback_url;
-}
-
 const root = createRoot(document.getElementById("root")!);
 const webAuthService = createWebAuthService();
+// 自建隐私版不提供依赖官方服务的 OAuth 与会话分享入口。
+const PRIVATE_BUILD_OFFICIAL_SHARING_ENABLED = false;
 
 // 初始化 Web 端流式 clientId，确保所有 hook 在首次渲染前就使用稳定 ID
 {
@@ -233,25 +230,9 @@ function createWebPlatform(): IPlatformService {
     openExternal: (url) => {
       window.open(url, "_blank", "noopener,noreferrer");
     },
-    openFeedback: async () => {
-      const feedbackUrl = await resolveFeedbackUrl();
-      if (!feedbackUrl) {
-        return;
-      }
-      window.open(feedbackUrl, "_blank", "noopener,noreferrer");
-    },
-    openCommunity: async () => {
-      const locale = document.documentElement.lang === "en-US" ? "en-US" : "zh-CN";
-      const communityUrl = await resolveWebCommunityUrl(locale);
-      if (!communityUrl) {
-        return;
-      }
-      window.open(communityUrl, "_blank", "noopener,noreferrer");
-    },
-    canOpenCommunity: async (locale) => {
-      const communityUrl = await resolveWebCommunityUrl(locale);
-      return typeof communityUrl === "string" && communityUrl.length > 0;
-    },
+    openFeedback: async () => {},
+    openCommunity: async () => {},
+    canOpenCommunity: async () => false,
     openInFileManager: () =>
       Promise.resolve({ success: false, error: "Not supported in web mode" }),
     openExternalFile: () => Promise.resolve({ success: false, error: "Not supported in web mode" }),
@@ -424,12 +405,14 @@ function renderWebBootstrapError(error: unknown): void {
 async function bootstrapWebApp() {
   const params = new URLSearchParams(window.location.search);
   if (isWebOAuthCallback(params)) {
-    renderWebAuthCallbackPage();
+    if (PRIVATE_BUILD_OFFICIAL_SHARING_ENABLED) renderWebAuthCallbackPage();
+    else renderWebBootstrapError(new Error("Official account login is disabled"));
     return;
   }
 
   if (isConversationSharePath(window.location.pathname)) {
-    await renderConversationSharePage();
+    if (PRIVATE_BUILD_OFFICIAL_SHARING_ENABLED) await renderConversationSharePage();
+    else renderWebBootstrapError(new Error("Official conversation sharing is disabled"));
     return;
   }
 
